@@ -10,7 +10,8 @@ class Product(Base):
     product_name = Column(String)
     product_quantity = Column(Integer)
     product_price = Column(Integer)
-    date_updated = Column(DateTime)
+    date_updated = Column(
+        DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
 
     def __init__(self, product_name, product_quantity, product_price, date_updated=None):
         self.product_name = product_name

@@ -1,5 +1,4 @@
 import csv
-from datetime import datetime
 from db import Base, engine, session
 from models import Product
 from utils import clean_data, format_date, format_price, input_choice, input_int, input_currency
@@ -29,46 +28,48 @@ def import_inventory(filepath):
         session.commit()
 
 
-def export_inventory():
-    now = datetime.strftime(datetime.now(), '%Y%m%d%H%M%S')
-    filename = f'inventory_{now}.csv'
-    header = ['product_name', 'product_quantity', 'product_price', 'date_updated']
+def export_inventory(filepath):
+    header = ['product_name', 'product_quantity',
+              'product_price', 'date_updated']
     data = session.query(Product).all()
-    # print(','.join(header))
-    with open(filename, 'w') as file:
+    with open(filepath, 'w') as file:
         writer = csv.writer(file)
         writer.writerow(header)
         writer.writerows([row.as_tuple() for row in data])
-        print(f'Inventory exported to {filename}')
+        print(f'Inventory exported to {filepath}')
 
-def main_menu():
+
+def app():
     while True:
         print(f'''
         \rStore Inventory
-        \r(V) Display Product by ID
-        \r(A) Add a new product
-        \r(B) Export
+        \r(V) View a single product's inventory
+        \r(A) Add a new product to the database
+        \r(B) Make a backup of the entire inventory
         \r(E) Exit
         ''')
 
         try:
-            choice = input_choice('What would you like to do? ', ('v', 'a', 'b', 'e'))
+            choice = input_choice(
+                'What would you like to do? ', ('v', 'a', 'b', 'e'))
         except ValueError as err:
-            print(f'Oops! Something went wrong - {err}')
+            print(f'\nOops! Something went wrong - {err}')
         else:
             if choice == 'v':
                 while True:
-                    print('\nProduct Details\n')
-                    product_ids = [str(id) for id, in session.query(Product.product_id)]
+                    product_ids = [str(id)
+                                   for id, in session.query(Product.product_id)]
 
                     try:
+                        print(f'\nAvailable products by id: {product_ids}')
                         choice = input_choice(
-                            f'Choose a product by it\'s id to view details: {product_ids} ', product_ids)
+                            f'\nWhich product would you like to view?: ', product_ids)
                     except ValueError as err:
-                        print(f'Oops! Something went wrong - {err}')
+                        print(f'\nOops! Something went wrong - {err}')
                     else:
-                        choice = int(choice)                
-                        product = session.query(Product).filter(Product.product_id == choice).one()
+                        choice = int(choice)
+                        product = session.query(Product).filter(
+                            Product.product_id == choice).one()
                         print(f'''
                             \nViewing Details for {product.product_name}:
                             \rPrice: {format_price(product.product_price)}
@@ -84,21 +85,37 @@ def main_menu():
                     product_price = input_currency('Price (ex: 5.00): $')
                     product_quantity = input_int('Quantity (ex: 1000): ')
 
-                    product = Product(product_name, product_quantity, product_price)
-                    session.add(product)
+                    product = session.query(Product).filter(
+                        Product.product_name == product_name).one()
+
+                    if product != None:
+                        product.product_name = product_name
+                        product.product_price = product_price
+                        product.product_quantity = product_quantity
+                        print(f'''
+                            \nUpdated product: {product.product_name}
+                            \rPrice: {format_price(product.product_price)}
+                            \rAvailable Qty: {product.product_quantity}
+                            \rUpdated On: {format_date(product.date_updated)}
+                        ''')
+                    else:
+                        product = Product(
+                            product_name, product_quantity, product_price)
+                        session.add(product)
+                        print(f'''
+                            \nAdded new product: {product.product_name}
+                            \rPrice: {format_price(product.product_price)}
+                            \rAvailable Qty: {product.product_quantity}
+                            \rAdded On: {format_date(product.date_updated)}
+                        ''')
+
                     session.commit()
 
-                    print(f'''
-                        \nAdded new product: {product.product_name}
-                        \rPrice: {format_price(product.product_price)}
-                        \rAvailable Qty: {product.product_quantity}
-                        \rAdded On: {format_date(product.date_updated)}
-                    ''')
                     if not input('Press enter to continue.'):
                         break
             elif choice == 'b':
                 print('\nExporting data...\n')
-                export_inventory()
+                export_inventory('backup.csv')
                 pass
             else:
                 print('Goodbye!')
@@ -108,4 +125,4 @@ def main_menu():
 if __name__ == '__main__':
     Base.metadata.create_all(engine)
     import_inventory('inventory.csv')
-    main_menu()
+    app()
