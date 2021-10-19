@@ -3,6 +3,7 @@ import re
 from db import session
 from datetime import datetime
 from models import Product
+from decimal import Decimal
 
 
 def clean_date(dateStr):
@@ -111,7 +112,7 @@ def input_currency(message):
         raise ValueError(
             f'Input must be a valid currency amount. For example 1,234.56')
 
-    value = float(value)
+    value = Decimal(re.sub(r'[^\d.]', '', value))
 
     return int(value * 100)
 
@@ -119,7 +120,7 @@ def input_currency(message):
 def format_price(price_int):
     '''Takes an integer value and returns a string in the format of US currency'''
 
-    return f'${"{:.2f}".format(price_int / 100)}'
+    return f'${"{:,.2f}".format(price_int / 100)}'
 
 
 def format_date(datetime):
@@ -181,14 +182,28 @@ def view_inventory():
                 break
 
 
+def get_valid_input(fn):
+    '''A helper function that takes a callback and calls it until it returns a valid input'''
+
+    while True:
+        try:
+            value = fn()
+        except ValueError as err:
+            print(f'\nOops! Something went wrong - {err}')
+        else:
+            return value
+
+
 def add_product():
     '''The menu interface to add or update product'''
 
     while True:
         print('\nAdd a New Product\n')
         product_name = input('Name: ')
-        product_price = input_currency('Price (ex: 5.00): $')
-        product_quantity = input_int('Quantity (ex: 1000): ')
+        product_price = get_valid_input(
+            lambda: input_currency('Price (ex: 5.00): $'))
+        product_quantity = get_valid_input(
+            lambda: input_int('Quantity (ex: 1000): ', False))
 
         product = session.query(Product).filter(
             Product.product_name == product_name).one_or_none()
